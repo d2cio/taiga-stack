@@ -1,0 +1,124 @@
+version: '1.0'
+services:
+  - name: db
+    type: postgres
+    version: 10.5
+    configuration: StandAlone
+    ports:
+      - 5432
+    username: taiga
+    database: taiga
+    userPassword: null
+    remoteAccess: false
+    deployTo:
+      - taiga
+
+  - name: rabbit
+    type: docker
+    image: rabbitmq
+    version: 3-alpine
+    ports:
+      - 5672
+    remoteAccess: false
+    env:
+      RABBITMQ_DEFAULT_USER: rabbituser
+      RABBITMQ_DEFAULT_PASS: rabbitpass
+    volumes:
+      - directory: /var/lib/rabbitmq
+    deployTo:
+      - taiga
+
+  - name: taiga-events
+    type: docker
+    image: monogramm/docker-taiga-events
+    version: alpine
+    ports:
+      - 8888
+    remoteAccess: false
+    env:
+      RABBIT_USER: rabbituser
+      RABBIT_PASSWORD: rabbitpass
+      RABBIT_HOST: "{{=service('rabbit').getAppAlias()}}-1"
+      RABBIT_PORT: 5672
+      TAIGA_EVENTS_SECRET: "{{=randomString(32)}}"
+      TAIGA_EVENTS_PORT: 8888
+    deployTo:
+      - taiga
+
+  - name: taiga-back
+    type: docker
+    image: monogramm/docker-taiga-back
+    version: latest
+    ports:
+      - 8001
+    remoteAccess: false
+    env:
+      TAIGA_SECRET_KEY: "{{=randomString(32)}}"
+      TAIGA_DEBUG: "false"
+      TAIGA_ADMIN_PASSWORD: null
+      TAIGA_FEEDBACK_EMAIL: null
+      TAIGA_DB_HOST: "{{=service('db').getMasterAlias()}}"
+      TAIGA_DB_NAME: "{{=service('db').get('database')}}"
+      TAIGA_DB_USER: "{{=service('db').get('username')}}"
+      TAIGA_DB_PASSWORD: "{{=service('db').get('userPassword')}}"
+      TAIGA_HOSTNAME: "{{=service('taiga-front').getNginxDomain()}}"
+      TAIGA_PUBLIC_REGISTER_ENABLED: "false"
+      TAIGA_FEEDBACK_ENABLED: True
+      TAIGA_EVENTS_ENABLED: True
+      RABBIT_USER: rabbituser
+      RABBIT_PASSWORD: rabbitpass
+      RABBIT_HOST: "{{=service('rabbit').getAppAlias()}}-1"
+      RABBIT_PORT: 5672
+    volumes:
+      - directory: /usr/src/taiga-back/media
+      - directory: /usr/src/taiga-back/static
+      - directory: /etc/localtime
+      - directory: /etc/timezone
+    deployTo:
+      - taiga
+
+  - name: taiga-front
+    type: docker
+    image: monogramm/docker-taiga-front
+    version: latest
+    ports:
+      - 80
+      - 443
+    remoteAccess: false
+    env:
+      TAIGA_HOSTNAME: "{{=service('taiga-front').getNginxDomain()}}"
+      TAIGA_DEBUG_INFO: "false"
+      TAIGA_DEBUG: "false"
+      TAIGA_DEFAULT_LANGUAGE: en
+      TAIGA_THEMES: taiga material-design high-contrast
+      TAIGA_DEFAULT_THEME: taiga
+      TAIGA_PUBLIC_REGISTER_ENABLED: "false"
+      TAIGA_FEEDBACK_ENABLED: true
+      TAIGA_SUPPORT_URL: https://tree.taiga.io/support
+      TAIGA_MAX_UPLOAD_SIZE: 104857600
+      TAIGA_GRAVATAR: true
+      TAIGA_BACK_HOST: "{{=service('taiga-back').getAppAlias()}}-1"
+      TAIGA_BACK_PORT: 8001
+      TAIGA_EVENTS_ENABLED: True
+      TAIGA_EVENTS_HOST: "{{=service('taiga-events').getAppAlias()}}-1"
+      TAIGA_EVENTS_PORT: 8888
+    deployTo:
+      - taiga
+
+  - name: web
+    type: nginx
+    version: 1.17
+    ports:
+      - 80
+      - 443
+    remoteAccess: true
+    serviceFiles:
+      - name: taiga-front
+    deployTo:
+      - taiga
+
+hosts:
+  - name: taiga
+    requirements:
+      cores: 1
+      memory: 2
