@@ -72,8 +72,6 @@ services:
     volumes:
       - directory: /usr/src/taiga-back/media
       - directory: /usr/src/taiga-back/static
-      - directory: /etc/localtime
-      - directory: /etc/timezone
     deployTo:
       - taiga
 
