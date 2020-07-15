@@ -70,8 +70,10 @@ services:
       RABBIT_HOST: "{{=service('rabbit').getAppAlias()}}-1"
       RABBIT_PORT: 5672
     volumes:
-      - directory: /usr/src/taiga-back/media
-      - directory: /usr/src/taiga-back/static
+      - from: /srv/taiga/back/media
+        directory: /usr/src/taiga-back/media
+      - from: /srv/taiga/back/static
+        directory: /usr/src/taiga-back/static
     deployTo:
       - taiga
 
@@ -100,6 +102,11 @@ services:
       TAIGA_EVENTS_ENABLED: True
       TAIGA_EVENTS_HOST: "{{=service('taiga-events').getAppAlias()}}-1"
       TAIGA_EVENTS_PORT: 8888
+    volumes:
+      - from: /srv/taiga/back/media
+        directory: /usr/src/taiga-back/media
+      - from: /srv/taiga/back/static
+        directory: /usr/src/taiga-back/static
     deployTo:
       - taiga
 
